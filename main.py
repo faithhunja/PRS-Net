@@ -4,12 +4,11 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-from torchvision import datasets, transforms
+from torch.utils.data import Dataset
 from torch.optim.lr_scheduler import StepLR
 
 import os
 from os.path import join, getsize
-from os.path import dirname, join as pjoin
 import scipy.io as sio
 
 class Net(nn.Module):
@@ -79,6 +78,24 @@ class Net(nn.Module):
         print(x3.shape)
         output = F.log_softmax(x, dim=1)
         return output
+# Dataset class definition
+class VolumeDataset(Dataset):
+    def __init__(self, mat_paths):
+        self.mat_paths = mat_paths
+        self.filenames = os.listdir(mat_paths)
+
+    def __len__(self):
+        return len(self.mat_paths)
+
+    def __getitem__(self, idx):
+        mat_fname = self.filenames[idx]
+        mat_fname = os.path.join(self.mat_paths, mat_fname)
+        mat_contents = sio.loadmat(mat_fname)
+        sorted(mat_contents.keys())
+        contents = mat_contents['Volume']
+        return contents
+                
+# vol = VolumeDataset('/home/faith/Downloads/Documents/train')
 
 def train(args, model, device, train_loader, optimizer, epoch):
     model.train()
@@ -114,17 +131,9 @@ def test(model, device, test_loader):
         test_loss, correct, len(test_loader.dataset),
         100. * correct / len(test_loader.dataset)))
 
-def loadMatDataset(x):
-    for filename in os.listdir('/home/faith/Downloads/Documents/train'):
-        data_dir = pjoin(dirname(sio.__file__), '/home/faith/Downloads/Documents/train')
-        mat_fname = pjoin(data_dir, filename)
-        mat_contents = sio.loadmat(mat_fname)
-        sorted(mat_contents.keys())
-        x = mat_contents['Volume'];
-
 def main():
     # Training settings
-    parser = argparse.ArgumentParser(description='PyTorch MNIST Example')
+    parser = argparse.ArgumentParser(description='PRS-Net implementation')
     parser.add_argument('--batch-size', type=int, default=64, metavar='N',
                         help='input batch size for training (default: 64)')
     parser.add_argument('--test-batch-size', type=int, default=1000, metavar='N',
@@ -161,12 +170,9 @@ def main():
         train_kwargs.update(cuda_kwargs)
         test_kwargs.update(cuda_kwargs)
 
-    # transform=transforms.Compose([
-    #     transforms.ToTensor(),
-    #     transforms.Normalize((0.1307,), (0.3081,))
-    #     ])
-    dataset1 = datasets.MNIST('/home/faith/Downloads/Compressed', train=True, download=True)
-    dataset2 = datasets.MNIST('/home/faith/Downloads/Compressed', train=False)
+    dataset1 = VolumeDataset('/home/faith/Downloads/Documents/train')
+    dataset2 = VolumeDataset('/home/faith/Downloads/Documents/test')
+    # valid_dataset = VolumeDataset(valid_image_paths) 
     train_loader = torch.utils.data.DataLoader(dataset1,**train_kwargs)
     test_loader = torch.utils.data.DataLoader(dataset2, **test_kwargs)
 
@@ -180,8 +186,9 @@ def main():
         scheduler.step()
 
     if args.save_model:
-        torch.save(model.state_dict(), "mnist_cnn.pt")
+        torch.save(model.state_dict(), "PRS-Net.pt")
 
+# Validation??
 
 if __name__ == '__main__':
     main()
